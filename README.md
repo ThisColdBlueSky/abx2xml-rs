@@ -1,11 +1,15 @@
 # abx2xml-rs
-Rust Library to Decode Android Binary XML ( ABX )
+
+This is the Modified Version Of https://github.com/rhythmcache/abx2xml-rs/ with XML formatting added.
+
 
 
 ## CLI Installation
 ```bash
-cargo install abx2xml
+cargo install --git https://github.com/ThisColdBlueSky/abx2xml-rs/
 ```
+
+
 
 ## CLI Usage
 ```bash
@@ -16,51 +20,11 @@ Arguments:
   [output]  Output file path (use '-' for stdout)
 
 Options:
+      --no-format  Skip XML formatting (output raw XML)
   -i, --in-place  Overwrite input file with converted output
 ```
 
-## Library Usage
 
-```rust
-use abx2xml::AbxToXmlConverter;
-use std::fs::File;
-
-// Convert file to file
-AbxToXmlConverter::convert_file("input.abx", "output.xml")?;
-
-// Convert using readers/writers
-let input = File::open("input.abx")?;
-let output = File::create("output.xml")?;
-AbxToXmlConverter::convert(input, output)?;
-```
-
-
-```rust
-use abx2xml::AbxToXmlConverter;
-
-// Convert from byte slice
-let abx_data = std::fs::read("input.abx")?;
-let xml_string = AbxToXmlConverter::convert_bytes(&abx_data)?;
-println!("{}", xml_string);
-
-// Convert from Vec<u8>
-let abx_data = std::fs::read("input.abx")?;
-let xml_string = AbxToXmlConverter::convert_vec(abx_data)?;
-println!("{}", xml_string);
-```
-
-```rust
-use abx2xml::{BinaryXmlDeserializer, SeekableReader};
-use std::io::{stdin, stdout};
-
-// Using the lower-level deserializer directly
-let stdin = stdin();
-let reader = SeekableReader::new(stdin.lock());
-let writer = stdout();
-
-let mut deserializer = BinaryXmlDeserializer::new(reader, writer)?;
-deserializer.deserialize()?;
-```
 
 ### Sources
 - [xml2abx](https://github.com/rhythmcache/xml2abx-rs)
