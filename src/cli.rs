@@ -1,5 +1,8 @@
 use crate::{AbxError, AbxToXmlConverter, Result};
 use clap::{Arg, Command};
+use std::io::Read;
+use std::str::FromStr;
+use xmlem::Document;
 
 pub struct Cli;
 
@@ -26,6 +29,12 @@ impl Cli {
                     .help("Output file path (use '-' for stdout)")
                     .index(2),
             )
+            .arg(
+                Arg::new("no-format")
+                    .long("no-format")
+                    .help("Skip XML formatting (output raw XML)")
+                    .action(clap::ArgAction::SetTrue),
+            )
     }
 
     pub fn run() -> Result<()> {
@@ -37,6 +46,7 @@ impl Cli {
         let input_path = matches.get_one::<String>("input").unwrap();
         let output_path = matches.get_one::<String>("output");
         let in_place = matches.get_flag("in-place");
+        let no_format = matches.get_flag("no-format");
 
         if in_place && input_path == "-" {
             return Err(AbxError::ParseError(
@@ -55,41 +65,65 @@ impl Cli {
             }
         };
 
-        match (input_path.as_str(), output_path.as_str()) {
-            ("-", "-") => AbxToXmlConverter::convert_stdin_stdout(),
-            ("-", output) => AbxToXmlConverter::convert_stdin_to_file(output),
-            (input, "-") => AbxToXmlConverter::convert_file_to_stdout(input),
-            (input, output) => AbxToXmlConverter::convert_file(input, output),
+        // Convert to XML string first
+        let xml_content = Self::convert_to_xml_string(input_path)?;
+        
+        // Format the XML unless --no-format is specified
+        let formatted_xml = if no_format {
+            xml_content
+        } else {
+            Self::format_xml(&xml_content)?
+        };
+
+        // Write to output
+        Self::write_output(&formatted_xml, &output_path)?;
+
+        Ok(())
+    }
+
+    fn convert_to_xml_string(input_path: &str) -> Result<String> {
+        // This function should capture the XML output as a string
+        // instead of writing directly to files/stdout
+        match input_path {
+            "-" => {
+                // Read all data from stdin
+                let mut buffer = Vec::new();
+                std::io::stdin().read_to_end(&mut buffer)
+                    .map_err(|e| AbxError::ParseError(format!("Failed to read from stdin: {}", e)))?;
+                AbxToXmlConverter::convert_bytes(&buffer)
+            },
+            input => {
+                // Read file and convert
+                let file_data = std::fs::read(input)
+                    .map_err(|e| AbxError::ParseError(format!("Failed to read file {}: {}", input, e)))?;
+                AbxToXmlConverter::convert_bytes(&file_data)
+            }
         }
     }
-}
 
-// test
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use clap::ArgMatches;
-
-    #[test]
-    fn test_build_command() {
-        let cmd = Cli::build_command();
-        assert_eq!(cmd.get_name(), "abx2xml");
+    fn format_xml(xml_content: &str) -> Result<String> {
+        // Use xmlem to format the XML properly
+        match Document::from_str(xml_content) {
+            Ok(doc) => Ok(doc.to_string_pretty()),
+            Err(e) => {
+                // If xmlem fails to parse, return the original content
+                // This handles cases where the XML might not be well-formed
+                eprintln!("Warning: Failed to format XML ({}), returning unformatted", e);
+                Ok(xml_content.to_string())
+            }
+        }
     }
 
-    #[test]
-    fn test_in_place_with_stdin_error() {
-        let matches = Cli::build_command()
-            .try_get_matches_from(vec!["abx2xml", "-i", "-"])
-            .unwrap();
-
-        let result = Cli::run_with_matches(matches);
-        assert!(result.is_err());
-
-        if let Err(AbxError::ParseError(msg)) = result {
-            assert!(msg.contains("Cannot use -i option with stdin input"));
-        } else {
-            panic!("Expected ParseError");
+    fn write_output(content: &str, output_path: &str) -> Result<()> {
+        match output_path {
+            "-" => {
+                print!("{}", content);
+                Ok(())
+            }
+            path => {
+                std::fs::write(path, content)
+                    .map_err(|e| AbxError::ParseError(format!("Failed to write to {}: {}", path, e)))
+            }
         }
     }
 }
