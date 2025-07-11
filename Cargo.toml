@@ -23,6 +23,7 @@ base64 = "0.22.1"
 clap = { version = "4.5.40", features = ["derive"] }
 hex = "0.4.3"
 thiserror = "2.0.12"
+xmlem = "0.3.3"
 
 [profile.release]
 opt-level = "z" 
